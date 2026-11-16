@@ -1,0 +1,110 @@
+.site-menu__button {
+  position: fixed;
+  z-index: 6;
+  inset: max(16px, env(safe-area-inset-top)) auto auto max(16px, env(safe-area-inset-left));
+  display: grid;
+  place-items: center;
+  inline-size: 48px;
+  block-size: 48px;
+  border: 0;
+  border-radius: 50%;
+  background: #fff;
+  color: #000;
+  cursor: pointer;
+  transition: background 180ms ease, color 180ms ease;
+}
+.site-menu__button:is(:hover, :focus-visible) { background: #000; color: #fff; }
+.site-menu__button:focus-visible { outline: 2px solid #777; outline-offset: 4px; }
+.site-menu__icon { display: grid; justify-items: start; gap: 4px; width: 20px; }
+.site-menu__icon i {
+  display: block;
+  inline-size: 100%;
+  block-size: 2px;
+  background: currentColor;
+  transition: transform 240ms cubic-bezier(.22,.8,.24,1), opacity 160ms ease;
+}
+.site-menu__button:not(.site-menu__button--close):is(:hover, :focus-visible) i:first-child,
+.site-menu__button:not(.site-menu__button--close):is(:hover, :focus-visible) i:last-child {
+  transform: scaleX(.68);
+}
+.site-menu__button:not(.site-menu__button--close) i:first-child { transform-origin: left; }
+.site-menu__button:not(.site-menu__button--close) i:last-child { transform-origin: right; }
+
+.site-menu {
+  position: fixed;
+  inset: 0;
+  inline-size: 100%;
+  block-size: 100%;
+  max-inline-size: none;
+  max-block-size: none;
+  margin: 0;
+  padding: 68px 0 24px;
+  overflow: auto;
+  border: 0;
+  background: transparent;
+  color: #fff;
+}
+.site-menu[open] { display: grid; align-items: center; }
+.site-menu::backdrop { background: transparent; }
+html:has(.site-menu[open]) { overflow: hidden; }
+
+.site-menu__button--close { background: #000; color: #fff; }
+.site-menu__button--close:is(:hover, :focus-visible) { background: #fff; color: #000; }
+.site-menu__button--close i:first-child { transform: translateY(6px) rotate(45deg); }
+.site-menu__button--close i:nth-child(2) { opacity: 0; }
+.site-menu__button--close i:last-child { transform: translateY(-6px) rotate(-45deg); }
+
+.site-menu__stairs {
+  position: fixed;
+  z-index: 0;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  pointer-events: none;
+}
+.site-menu__stairs span { background: #000; }
+
+.site-menu__nav { position: relative; z-index: 1; border-block-start: 1px solid #424242; }
+.site-menu__nav a {
+  display: grid;
+  place-items: center;
+  min-height: 48px;
+  padding: clamp(10px, 2.5svh, 24px) 12px;
+  border-block-end: 1px solid #424242;
+  color: #fff;
+  text-align: center;
+  font-size: clamp(1.6rem, min(8vw, 12svh), 7rem);
+  font-weight: 900;
+  line-height: .94;
+  letter-spacing: -.065em;
+  text-transform: uppercase;
+  transition: background 200ms ease, color 200ms ease;
+}
+.site-menu__nav a:is(:hover, :focus-visible) { background: #fff; color: #000; outline: none; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .site-menu[open] .site-menu__stairs span {
+    animation: site-menu-step 440ms cubic-bezier(.7,0,.2,1) calc(var(--step) * 50ms) both;
+  }
+  .site-menu[open] .site-menu__nav {
+    animation: site-menu-lines 230ms ease 570ms both;
+  }
+  .site-menu[open] .site-menu__nav a span {
+    animation: site-menu-link 440ms cubic-bezier(.18,.8,.24,1) calc(590ms + var(--step) * 65ms) both;
+  }
+  .site-menu[open][data-leaving] .site-menu__stairs span {
+    animation: site-menu-step-out 440ms cubic-bezier(.7,0,.2,1) calc(140ms + (5 - var(--step)) * 50ms) both;
+  }
+  .site-menu[open][data-leaving] :is(.site-menu__nav, .site-menu__button--close) {
+    animation: site-menu-lines-out 140ms ease both;
+    pointer-events: none;
+  }
+}
+@keyframes site-menu-step { from { transform: translateY(-101%); } to { transform: translateY(0); } }
+@keyframes site-menu-step-out { from { transform: translateY(0); } to { transform: translateY(-101%); } }
+@keyframes site-menu-lines { from { opacity: 0; } to { opacity: 1; } }
+@keyframes site-menu-lines-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes site-menu-link {
+  from { opacity: 0; transform: perspective(340px) translateY(.35em) rotateX(-65deg); }
+  to { opacity: 1; transform: perspective(340px) translateY(0) rotateX(0); }
+}

@@ -1,0 +1,128 @@
+.site-header.portrait-header {
+  background: var(--paper);
+  color: var(--paper-ink);
+  border-color: #ccd7ce;
+}
+.portrait-header :is(.navigation a, .brand svg) { color: var(--teal); }
+.portrait-header .navigation a:hover { color: var(--paper-ink); }
+.portrait-header a:focus-visible,
+.portrait-hero a:focus-visible { outline-color: var(--teal); }
+
+.hero.portrait-hero {
+  --portrait-size: min(66vw, calc(100svh - var(--scene-header, 77px) - 18px), 1040px);
+  display: grid;
+  min-height: calc(100svh - var(--scene-header, 77px));
+  background: var(--paper);
+  color: var(--paper-ink);
+  border: 0;
+}
+.portrait-hero__contours {
+  position: absolute;
+  inset: -18%;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    repeating-radial-gradient(ellipse at 31% 48%, transparent 0 25px, #286d6018 26px, transparent 27px 49px),
+    repeating-radial-gradient(ellipse at 87% 16%, transparent 0 42px, #286d6011 43px, transparent 44px 72px);
+  transform: rotate(-13deg) scale(1.08);
+}
+.portrait-hero__portrait {
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  translate: -50% 0;
+  width: var(--portrait-size);
+  aspect-ratio: 1;
+  z-index: -1;
+}
+.portrait-hero__face { display: block; width: 100%; height: 100%; }
+.portrait-hero__helmet {
+  position: absolute;
+  top: -2%;
+  left: 18%;
+  width: 64%;
+  height: 70%;
+  pointer-events: none;
+}
+.portrait-hero__helmet span {
+  position: absolute;
+  inset: 0;
+  background: url("/hero/visor.webp") center / 100% 100% no-repeat;
+  clip-path: var(--fragment);
+  opacity: 0;
+}
+.portrait-hero__helmet span:nth-child(1) {
+  --fragment: polygon(0 0, 100% 0, 100% 34%, 58% 39%, 0 31%);
+  --fragment-x: 2%; --fragment-y: -50%; --fragment-angle: -12deg;
+  --fragment-delay: 0ms;
+}
+.portrait-hero__helmet span:nth-child(2) {
+  --fragment: polygon(0 31%, 58% 39%, 53% 61%, 0 68%);
+  --fragment-x: -55%; --fragment-y: -8%; --fragment-angle: -18deg;
+  --fragment-delay: 120ms;
+}
+.portrait-hero__helmet span:nth-child(3) {
+  --fragment: polygon(58% 39%, 100% 34%, 100% 72%, 53% 61%);
+  --fragment-x: 55%; --fragment-y: 4%; --fragment-angle: 16deg;
+  --fragment-delay: 220ms;
+}
+.portrait-hero__helmet span:nth-child(4) {
+  --fragment: polygon(0 68%, 53% 61%, 100% 72%, 100% 100%, 0 100%);
+  --fragment-x: 10%; --fragment-y: 46%; --fragment-angle: 14deg;
+  --fragment-delay: 320ms;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .portrait-hero__helmet span {
+    animation: portrait-helmet-assemble 3.1s cubic-bezier(.24,.74,.28,1)
+      calc(var(--hero-type-delay, 0ms) + 360ms + var(--fragment-delay)) both;
+  }
+}
+@keyframes portrait-helmet-assemble {
+  0% { transform: translate(var(--fragment-x), var(--fragment-y)) rotate(var(--fragment-angle)); opacity: 0; }
+  12% { opacity: 1; }
+  36%, 70% { transform: translate(0, 0) rotate(0); opacity: 1; }
+  100% { transform: translate(var(--fragment-x), var(--fragment-y)) rotate(var(--fragment-angle)); opacity: 0; }
+}
+.portrait-hero__content {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 22px;
+  padding-block: 28px clamp(32px, 6svh, 78px);
+}
+.portrait-hero__name { margin: 0 0 12px; color: var(--teal); font-weight: 700; }
+.portrait-hero h1 {
+  margin: 0;
+  font: 550 clamp(1.65rem, 3.4vw, 4.2rem)/.96 var(--pixel);
+  letter-spacing: -.035em;
+  text-transform: uppercase;
+}
+.portrait-hero .hero-description { color: var(--paper-ink); margin-bottom: 0; max-width: 28ch; }
+.portrait-hero__actions {
+  display: grid;
+  justify-items: end;
+  gap: 17px;
+  font-size: .9rem;
+  font-weight: 650;
+}
+@media (max-width: 980px) {
+  .hero.portrait-hero {
+    --portrait-size: min(92vw, 48svh, 500px);
+    grid-template-rows: auto 1fr;
+  }
+  .portrait-hero__portrait {
+    position: relative;
+    left: auto;
+    translate: none;
+    margin: 12px auto 0;
+  }
+  .portrait-hero__content {
+    align-items: start;
+    flex-direction: column;
+    justify-content: center;
+    padding-block: 24px 32px;
+  }
+  .portrait-hero h1 { font-size: clamp(1.75rem, 7.2vw, 3.25rem); }
+  .portrait-hero .hero-description { margin-top: 12px; max-width: 38ch; }
+  .portrait-hero__actions { display: flex; flex-wrap: wrap; align-items: center; }
+}
