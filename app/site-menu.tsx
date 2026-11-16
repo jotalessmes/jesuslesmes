@@ -9,6 +9,7 @@ const links = [
   ["Servicios", "#servicios"],
   ["Proyectos", "#proyectos"],
   ["Tarifas", "#tarifas"],
+  ["Reserva", "#reserva"],
 ];
 
 function MenuIcon() {

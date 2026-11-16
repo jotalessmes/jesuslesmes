@@ -6,6 +6,7 @@ import { SitePointerTrail } from "./negative-trail";
 import { ServicesSection } from "./services-section";
 import { ProjectsSection } from "./projects-section";
 import { PricingSection } from "./pricing-section";
+import { ReservationSection } from "./reservation-section";
 import "./device-hero.css";
 
 export default function Home() {
@@ -20,6 +21,7 @@ export default function Home() {
         <ServicesSection />
         <ProjectsSection />
         <PricingSection />
+        <ReservationSection />
       </main>
     </>
   );
