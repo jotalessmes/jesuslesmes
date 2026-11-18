@@ -27,7 +27,7 @@ export function ReservationForm() {
   if (result.reference) {
     return <div className="booking-confirmation" role="status">
       <h3>Reserva recibida.</h3>
-      <p>Tu referencia es <strong>{result.reference}</strong>. Revisaré tu idea y te contactaré por correo.</p>
+      <p>Tu referencia es <strong>{result.reference}</strong>. Revisaré los detalles de tu proyecto.</p>
     </div>;
   }
 

@@ -28,7 +28,6 @@ export default async function ManagementPage() {
     status: row.status as Order["status"], brief: JSON.parse(String(row.brief)),
     quote: row.quote === null ? null : Number(row.quote),
     prototype: String(row.prototype), notes: String(row.notes),
-    owner_mail: Number(row.owner_mail), welcome_mail: Number(row.welcome_mail),
     prototype_sent: String(row.prototype_sent),
   }));
   const paymentList: Payment[] = payments.map(row => ({

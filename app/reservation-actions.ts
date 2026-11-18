@@ -6,7 +6,6 @@ import { redirect } from "next/navigation";
 import { plans, statuses, briefFields } from "../lib/reservations";
 import { reservationsDb, allowRequest } from "../lib/reservations-db";
 import { adminAuthenticated, endSession, passwordMatches, requestKey, startSession } from "../lib/reservations-auth";
-import { sendReservationEmail } from "../lib/reservation-email";
 import { isNeonAdmin, neonAdminEnabled, neonAuth } from "../lib/neon-admin-auth";
 import { availableModels, functionsReady, storageReady } from "../lib/neon-services";
 
@@ -36,25 +35,8 @@ export async function createReservation(_: FormResult, data: FormData): Promise<
     console.error("No se pudo guardar la reserva", error instanceof Error ? error.name : "");
     return { error: "No se ha podido guardar la reserva. Inténtalo más tarde." };
   }
-  try { await deliverInitialEmails(id); }
-  catch { console.error("No se pudo actualizar el estado de los correos"); }
   revalidatePath("/gestion");
   return { reference: id.slice(0, 8).toUpperCase() };
-}
-
-async function deliverInitialEmails(id: string) {
-  const db = await reservationsDb();
-  const [row] = await db.query(`SELECT * FROM reservations WHERE id = $1`, [id]);
-  if (!row) return false;
-  const details = { id, name: String(row.name), company: String(row.company), email: String(row.email), plan: plans[String(row.plan) as keyof typeof plans] };
-  const delivered = await Promise.all((["owner", "welcome"] as const).map(async (kind) => {
-    const column = kind === "owner" ? "owner_mail" : "welcome_mail";
-    if (row[column]) return true;
-    if (!await sendReservationEmail(kind, details)) return false;
-    await db.query(`UPDATE reservations SET ${column} = 1 WHERE id = $1`, [id]);
-    return true;
-  }));
-  return delivered.every(Boolean);
 }
 
 export async function login(_: FormResult, data: FormData): Promise<FormResult> {
@@ -108,19 +90,7 @@ export async function manageReservation(id: string, _: FormResult, data: FormDat
   const operation = field(data, "operation");
   try {
     const db = await reservationsDb();
-    if (operation === "retry") {
-      if (!await deliverInitialEmails(id)) {
-        revalidatePath("/gestion");
-        return { error: "Quedan correos pendientes. Revisa la configuración del remitente o inténtalo más tarde." };
-      }
-    } else if (operation === "send") {
-      const [row] = await db.query(`SELECT * FROM reservations WHERE id = $1`, [id]);
-      if (!row?.prototype || row.prototype === row.prototype_sent) return { error: "Guarda un enlace nuevo antes de enviarlo." };
-      if (!await sendReservationEmail("prototype", { id, name: String(row.name), company: String(row.company), email: String(row.email), plan: "", prototype: String(row.prototype) })) {
-        return { error: "No se pudo enviar el correo del prototipo." };
-      }
-      await db.query(`UPDATE reservations SET status = 'sent', prototype_sent = $1 WHERE id = $2 AND prototype = $3`, [row.prototype, id, row.prototype]);
-    } else if (operation === "payment") {
+    if (operation === "payment") {
       const amount = readAmount(field(data, "amount"));
       const requestId = field(data, "payment_id");
       if (!amount || !/^[a-f\d-]{36}$/.test(requestId)) return { error: "Indica un cobro mayor que cero." };

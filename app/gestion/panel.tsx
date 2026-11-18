@@ -8,7 +8,7 @@ export type Order = {
   id: string; created_at: number; name: string; surname: string; email: string;
   company: string; domain: string; plan: keyof typeof plans; status: keyof typeof statuses;
   brief: Record<string, string>; quote: number | null; prototype: string; notes: string;
-  owner_mail: number; welcome_mail: number; prototype_sent: string;
+  prototype_sent: string;
 };
 export type Payment = { id: string; reservation_id: string; amount: number; received_at: number };
 const dateFormat = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid", year: "numeric", month: "2-digit", day: "2-digit" });
@@ -52,7 +52,6 @@ function OrderDetail({ order, payments }: { order: Order; payments: Payment[] })
       <label>Enlace al prototipo<input name="prototype" type="url" defaultValue={order.prototype} maxLength={1000} /></label>
       <label>Notas privadas<textarea name="notes" rows={3} defaultValue={order.notes} maxLength={4000} /></label>
       <button className="booking-button" name="operation" value="save" disabled={pending}>Guardar cambios</button>
-      <button name="operation" value="send" formNoValidate disabled={pending || !order.prototype || order.prototype === order.prototype_sent}>Enviar enlace guardado al cliente</button>
       {order.prototype_sent && <p>Último prototipo enviado: <a href={order.prototype_sent}>{order.prototype_sent}</a></p>}
     </form>
     <div>
@@ -66,10 +65,6 @@ function OrderDetail({ order, payments }: { order: Order; payments: Payment[] })
         <button name="operation" value="payment" disabled={pending}>Registrar cobro</button>
       </form>
     </div>
-    <form action={submit}>
-      <p>Aviso a Jesús: {order.owner_mail ? "enviado" : "pendiente"} · Bienvenida: {order.welcome_mail ? "enviada" : "pendiente"}</p>
-      {(!order.owner_mail || !order.welcome_mail) && <button name="operation" value="retry" disabled={pending}>Reintentar correos pendientes</button>}
-    </form>
     {state.error && <p role="alert">{state.error}</p>}
     {state.reference && <p role="status">{state.reference}</p>}
   </section>;
