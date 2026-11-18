@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import { adminAuthenticated } from "../../lib/reservations-auth";
 import { reservationsDb } from "../../lib/reservations-db";
+import { neonAdminEnabled } from "../../lib/neon-admin-auth";
+import { reservationFeed } from "../../lib/neon-services";
+import { NeonFeed } from "./neon-feed";
 import type { Order, Payment } from "./panel";
 import { AdminPanel, AdminLogin } from "./panel";
 import "../reservations.css";
@@ -11,13 +14,13 @@ export const metadata: Metadata = {
 };
 
 export default async function ManagementPage() {
-  if (!await adminAuthenticated()) return <AdminLogin />;
+  if (!await adminAuthenticated()) return <AdminLogin neonLogin={neonAdminEnabled()} />;
   const db = await reservationsDb();
-  const [orders, payments] = await db.batch([
-    "SELECT * FROM reservations ORDER BY created_at DESC",
-    "SELECT * FROM payments ORDER BY received_at DESC",
-  ], "read");
-  const orderList: Order[] = orders.rows.map(row => ({
+  const [orders, payments] = await db.transaction([
+    db`SELECT * FROM reservations ORDER BY created_at DESC`,
+    db`SELECT * FROM payments ORDER BY received_at DESC`,
+  ], { isolationLevel: "RepeatableRead", readOnly: true });
+  const orderList: Order[] = orders.map(row => ({
     id: String(row.id), created_at: Number(row.created_at),
     name: String(row.name), surname: String(row.surname),
     email: String(row.email), company: String(row.company),
@@ -28,9 +31,13 @@ export default async function ManagementPage() {
     owner_mail: Number(row.owner_mail), welcome_mail: Number(row.welcome_mail),
     prototype_sent: String(row.prototype_sent),
   }));
-  const paymentList: Payment[] = payments.rows.map(row => ({
+  const paymentList: Payment[] = payments.map(row => ({
     id: String(row.id), reservation_id: String(row.reservation_id),
     amount: Number(row.amount), received_at: Number(row.received_at),
   }));
-  return <AdminPanel orders={orderList} payments={paymentList} />;
+  const feed = await reservationFeed().catch(() => undefined);
+  return <>
+    {feed && <NeonFeed feed={feed} total={orderList.length} />}
+    <AdminPanel orders={orderList} payments={paymentList} />
+  </>;
 }

@@ -1,5 +1,6 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { cookies, headers } from "next/headers";
+import { isNeonAdmin, neonAdminEnabled, neonAuth } from "./neon-admin-auth";
 
 const cookie = "lesmes_admin";
 const ttl = 60 * 60 * 8;
@@ -25,6 +26,14 @@ export async function startSession() {
 }
 
 export async function adminAuthenticated() {
+  if (neonAdminEnabled()) {
+    try {
+      const { data } = await neonAuth().getSession();
+      return isNeonAdmin(data?.user);
+    } catch {
+      return false;
+    }
+  }
   const token = (await cookies()).get(cookie)?.value;
   if (!token || !process.env.ADMIN_PASSWORD) return false;
   const [expiry, mac] = token.split(".");
@@ -34,6 +43,7 @@ export async function adminAuthenticated() {
 }
 
 export async function endSession() {
+  if (neonAdminEnabled()) await neonAuth().signOut();
   (await cookies()).delete(cookie);
 }
 

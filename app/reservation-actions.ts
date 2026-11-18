@@ -7,6 +7,8 @@ import { plans, statuses, briefFields } from "../lib/reservations";
 import { reservationsDb, allowRequest } from "../lib/reservations-db";
 import { adminAuthenticated, endSession, passwordMatches, requestKey, startSession } from "../lib/reservations-auth";
 import { sendReservationEmail } from "../lib/reservation-email";
+import { isNeonAdmin, neonAdminEnabled, neonAuth } from "../lib/neon-admin-auth";
+import { availableModels, functionsReady, storageReady } from "../lib/neon-services";
 
 const field = (data: FormData, key: string) => String(data.get(key) ?? "").trim();
 const emailPattern = /^[a-z0-9._%+\-]+@[a-z0-9-]+(?:\.[a-z0-9-]+)+$/i;
@@ -29,10 +31,7 @@ export async function createReservation(_: FormResult, data: FormData): Promise<
       return { error: "Has enviado varias solicitudes. Inténtalo más tarde." };
     }
     const db = await reservationsDb();
-    await db.execute({
-      sql: "INSERT INTO reservations (id,created_at,name,surname,email,company,plan,domain,brief) VALUES (?,?,?,?,?,?,?,?,?)",
-      args: [id, Date.now(), name, surname, email, company, plan, domain, JSON.stringify(brief)],
-    });
+    await db.query(`INSERT INTO reservations (id,created_at,name,surname,email,company,plan,domain,brief) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)`, [id, Date.now(), name, surname, email, company, plan, domain, JSON.stringify(brief)]);
   } catch (error) {
     console.error("No se pudo guardar la reserva", error instanceof Error ? error.name : "");
     return { error: "No se ha podido guardar la reserva. Inténtalo más tarde." };
@@ -45,14 +44,14 @@ export async function createReservation(_: FormResult, data: FormData): Promise<
 
 async function deliverInitialEmails(id: string) {
   const db = await reservationsDb();
-  const [row] = (await db.execute({ sql: "SELECT * FROM reservations WHERE id = ?", args: [id] })).rows;
+  const [row] = await db.query(`SELECT * FROM reservations WHERE id = $1`, [id]);
   if (!row) return false;
   const details = { id, name: String(row.name), company: String(row.company), email: String(row.email), plan: plans[String(row.plan) as keyof typeof plans] };
   const delivered = await Promise.all((["owner", "welcome"] as const).map(async (kind) => {
     const column = kind === "owner" ? "owner_mail" : "welcome_mail";
     if (row[column]) return true;
     if (!await sendReservationEmail(kind, details)) return false;
-    await db.execute({ sql: `UPDATE reservations SET ${column} = 1 WHERE id = ?`, args: [id] });
+    await db.query(`UPDATE reservations SET ${column} = 1 WHERE id = $1`, [id]);
     return true;
   }));
   return delivered.every(Boolean);
@@ -62,10 +61,22 @@ export async function login(_: FormResult, data: FormData): Promise<FormResult> 
   try {
     const password = data.get("password");
     if (!await allowRequest("login:" + await requestKey(), 8, 15 * 60_000) ||
-        typeof password !== "string" || password.length > 512 || !passwordMatches(password)) {
+        typeof password !== "string" || password.length > 512) {
       return { error: "Acceso incorrecto o demasiados intentos." };
     }
-    await startSession();
+    if (neonAdminEnabled()) {
+      const email = field(data, "email");
+      if (!emailPattern.test(email)) return { error: "Acceso incorrecto." };
+      const auth = neonAuth();
+      const { data: session, error } = await auth.signIn.email({ email, password });
+      if (error || !isNeonAdmin(session?.user)) {
+        if (!error) await auth.signOut();
+        return { error: "Acceso incorrecto." };
+      }
+    } else {
+      if (!passwordMatches(password)) return { error: "Acceso incorrecto." };
+      await startSession();
+    }
   } catch {
     return { error: "El panel no está disponible. Revisa su configuración." };
   }
@@ -75,6 +86,16 @@ export async function login(_: FormResult, data: FormData): Promise<FormResult> 
 export async function logout() {
   await endSession();
   redirect("/gestion");
+}
+
+export async function checkNeonServices() {
+  if (!await adminAuthenticated()) return { error: "Vuelve a iniciar sesión." };
+  const [storage, functions, ai] = await Promise.allSettled([storageReady(), functionsReady(), availableModels()]);
+  return {
+    storage: storage.status === "fulfilled" && storage.value ? "Accesible" : "No disponible",
+    functions: functions.status === "fulfilled" && functions.value ? "Responde" : "No disponible",
+    ai: ai.status === "fulfilled" && ai.value !== null ? `${ai.value} modelos disponibles` : "No disponible",
+  };
 }
 
 function readAmount(value: string) {
@@ -93,25 +114,22 @@ export async function manageReservation(id: string, _: FormResult, data: FormDat
         return { error: "Quedan correos pendientes. Revisa la configuración del remitente o inténtalo más tarde." };
       }
     } else if (operation === "send") {
-      const [row] = (await db.execute({sql: "SELECT * FROM reservations WHERE id = ?", args: [id]})).rows;
+      const [row] = await db.query(`SELECT * FROM reservations WHERE id = $1`, [id]);
       if (!row?.prototype || row.prototype === row.prototype_sent) return { error: "Guarda un enlace nuevo antes de enviarlo." };
       if (!await sendReservationEmail("prototype", { id, name: String(row.name), company: String(row.company), email: String(row.email), plan: "", prototype: String(row.prototype) })) {
         return { error: "No se pudo enviar el correo del prototipo." };
       }
-      await db.execute({ sql: "UPDATE reservations SET status = 'sent', prototype_sent = ? WHERE id = ? AND prototype = ?", args: [row.prototype, id, row.prototype] });
+      await db.query(`UPDATE reservations SET status = 'sent', prototype_sent = $1 WHERE id = $2 AND prototype = $3`, [row.prototype, id, row.prototype]);
     } else if (operation === "payment") {
       const amount = readAmount(field(data, "amount"));
       const requestId = field(data, "payment_id");
       if (!amount || !/^[a-f\d-]{36}$/.test(requestId)) return { error: "Indica un cobro mayor que cero." };
-      await db.execute({
-        sql: "INSERT INTO payments (id,reservation_id,amount,received_at) VALUES (?,?,?,?) ON CONFLICT(id) DO NOTHING",
-        args: [requestId, id, amount, Date.now()],
-      });
+      await db.query(`INSERT INTO payments (id,reservation_id,amount,received_at) VALUES ($1,$2,$3,$4) ON CONFLICT(id) DO NOTHING`, [requestId, id, amount, Date.now()]);
     } else if (operation === "save" || operation === "move") {
       const status = field(data, "status");
       if (!Object.hasOwn(statuses, status)) return { error: "Estado desconocido." };
       if (operation === "move") {
-        await db.execute({ sql: "UPDATE reservations SET status = ? WHERE id = ?", args: [status, id] });
+        await db.query(`UPDATE reservations SET status = $1 WHERE id = $2`, [status, id]);
       } else {
         const notes = field(data, "notes"), prototype = field(data, "prototype");
         const rawQuote = field(data, "quote"), quote = rawQuote ? readAmount(rawQuote) : null;
@@ -119,7 +137,7 @@ export async function manageReservation(id: string, _: FormResult, data: FormDat
           return { error: "Revisa el presupuesto, las notas y el enlace." };
         }
         if (prototype && URL.parse(prototype)?.protocol !== "https:") return { error: "El prototipo necesita un enlace HTTPS." };
-        await db.execute({ sql: "UPDATE reservations SET status=?, quote=?, notes=?, prototype=? WHERE id=?", args: [status, quote, notes, prototype, id] });
+        await db.query(`UPDATE reservations SET status=$1, quote=$2, notes=$3, prototype=$4 WHERE id=$5`, [status, quote, notes, prototype, id]);
       }
     } else {
       return { error: "Acción desconocida." };

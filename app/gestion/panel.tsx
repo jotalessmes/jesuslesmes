@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { login, logout, manageReservation } from "../reservation-actions";
+import { checkNeonServices, login, logout, manageReservation } from "../reservation-actions";
 import { briefFields, plans, statuses } from "../../lib/reservations";
 
 export type Order = {
@@ -16,12 +16,13 @@ const date = (timestamp: number) => dateFormat.format(timestamp);
 const euros = (amount: number) => new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR" }).format(amount / 100);
 const reference = (id: string) => id.slice(0, 8).toUpperCase();
 
-export function AdminLogin() {
+export function AdminLogin({ neonLogin }: { neonLogin: boolean }) {
   const [state, submit, pending] = useActionState(login, {});
   return <main className="admin-shell admin-login">
     <a href="/">← Volver a la web</a>
     <h1>Gestión privada</h1>
     <form action={submit}>
+      {neonLogin && <label>Correo<input name="email" type="email" required autoComplete="username" /></label>}
       <label>Contraseña<input type="password" name="password" required maxLength={512} autoComplete="current-password" /></label>
       {state.error && <p role="alert">{state.error}</p>}
       <button className="booking-button" disabled={pending}>{pending ? "Entrando…" : "Entrar"}</button>
@@ -75,6 +76,7 @@ function OrderDetail({ order, payments }: { order: Order; payments: Payment[] })
 }
 
 function Dashboard({ orders, payments }: { orders: Order[]; payments: Payment[] }) {
+  const [serviceStatus, checkServices, checking] = useActionState(checkNeonServices, undefined);
   const [period, setPeriod] = useState("month");
   const [selectedDate, setSelectedDate] = useState(() => date(Date.now()));
   const [year, month] = selectedDate.split("-").map(Number);
@@ -97,6 +99,14 @@ function Dashboard({ orders, payments }: { orders: Order[]; payments: Payment[] 
   }));
   return <section aria-labelledby="dashboard-title">
     <h2 id="dashboard-title">Resumen</h2>
+    <details>
+      <summary>Estado de servicios Neon</summary>
+      <form action={checkServices}><button disabled={checking}>Comprobar servicios</button></form>
+      {serviceStatus?.error && <p role="alert">{serviceStatus.error}</p>}
+      {serviceStatus?.storage && <p role="status">
+        Almacenamiento: {serviceStatus.storage} · Función: {serviceStatus.functions} · AI Gateway: {serviceStatus.ai}
+      </p>}
+    </details>
     <div className="admin-controls">
       <label>Periodo<select value={period} onChange={event => setPeriod(event.target.value)}>
         <option value="day">Día</option><option value="month">Mes</option><option value="year">Año</option>
